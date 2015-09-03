@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
@@ -17,31 +18,69 @@ import java.util.Scanner;
 
 public class Server {
 
-	private static List<Object> serverList;
-	
-	static void createServer(String serverName, int id) {
-		//blah blah we do file i/o shit here
-		//basically this method is called when we add in a new server. We need to work out how2do that
-		
-		
-		
-	}
-	
+	private static List<Object> serverList = new ArrayList<Object>();
+	private static int NumberOfServers;
+	boolean serverClassInitialized = false;
 	
 	Scanner CmdSender;
 	static PrintWriter cmdSend;
 	Process p;
 	BufferedReader fileReader;
-	int serverID;
 	
-	static boolean[] running; 
+	int serverID;
+	String serverName;
+	
+	File MCSPPlayers;
+	File MCSPScripts;
+	File MCSPServFolder;
+	File dirServ;
+	
+	boolean running;
+	static boolean[] Drunning; 
+	
+	/*
+	 * There are lots of files that we might want to access. Each instance of Server will have them
+	 * stored for that server. For example, server.properties will be declared as a file,
+	 * probably ops.json, etc. That's why we need the servFolderPath, we'll use it as our base to find
+	 * these things. Note that it doesn't lead straight to the directory where the files of the server
+	 * are, it leads to that server's folder as declared by MCServerPal. To reach the directory of the
+	 * server files it's just servFolderPath\Server. Simple.
+	 */
+	
+	public Server(String servName, String servFolderPath) {
+		
+		//serverList.add(this);	//Adds this server to the list
+		if (!serverClassInitialized) {
+			serverList.add("Index 0. This is not a server.");
+		}
+		
+		NumberOfServers++;
+		serverID = NumberOfServers;	//This is fine and dandy until we start removing servers. We need to come up with a better way of assigning ids, because a server's id might not always be the next one to be given.
+		this.serverName = servName;	//the this is included to indicate that it is a variable in the main class and not a method
+		System.out.println(this);
+		serverList.add(serverID, this);	//Adds this server to the list
+		
+		System.out.println(servFolderPath);
+		
+		dirServ = new File(servFolderPath);
+		dirServ.mkdirs();
+		MCSPPlayers= new File(servFolderPath + "Players");
+		MCSPPlayers.mkdirs();
+		MCSPScripts = new File(servFolderPath + "Scripts");
+		MCSPScripts.mkdirs();
+		MCSPServFolder = new File(servFolderPath + "Server");
+		MCSPServFolder.mkdirs();
+		
+	}
 	
 	//Yo dawg, don't put everything into a constructor. We need to make the output method separate.
 	public Server(int id) throws IOException, InterruptedException {
 		
+		serverList = new ArrayList<Object>();
+		
 		serverID = id;
-		running = new boolean[/*noOfServs*/1];
-		running[serverID] = true;
+		Drunning = new boolean[/*noOfServs*/1];
+		Drunning[serverID] = true;
 		
 		CmdSender = new Scanner(System.in);
 		
@@ -93,7 +132,7 @@ public class Server {
 			if (Startup.exists()) {
 				fileReader = new BufferedReader(new FileReader(Startup));
 				
-				while (running[serverID]) {
+				while (Drunning[serverID]) {
 					
 					try {
 						output = fileReader.readLine();
@@ -109,8 +148,8 @@ public class Server {
 						}
 						
 					} catch (NullPointerException e) {
-						running[serverID] = false;	//I don't know why this is here?
-						System.out.println(running[serverID] + " -Startup script executed, not sure why this is set to false");
+						Drunning[serverID] = false;	//I don't know why this is here?
+						System.out.println(Drunning[serverID] + " -Startup script executed, not sure why this is set to false");
 					}
 					
 				}
@@ -120,9 +159,9 @@ public class Server {
 			OutputThread O1 = new OutputThread(p, "OutputT1", serverID);
 			O1.start();
 			
-			running[serverID] = true;
+			Drunning[serverID] = true;
 			
-			while (running[serverID]) {
+			while (Drunning[serverID]) {
 				
 				output = CmdSender.nextLine();
 				
@@ -132,7 +171,7 @@ public class Server {
 					test2.write("\n");
 					test2.flush();
 					
-					running[serverID] = false;
+					Drunning[serverID] = false;
 					System.out.println("Server has closed, this program SHOULD terminate. (1)");
 					
 				} else {
@@ -161,15 +200,14 @@ public class Server {
 		System.out.println("Server has closed, this program SHOULD terminate. (2)");
 	}
 	
-	public Server(String servName) {
-		File server = new File(servName);	//LOL like this is a thing we need
-		
-	}
 	
 	
+	//aghhh this is atrocious. Have it reference the ServerList[] and get the running from that!!!
 	static public boolean getRunning(int id) {
 		
-		return running[id];
+		boolean tempBool;
+		tempBool = ((Server)serverList.get(id)).running;	//<--- What we will eventually use
+		return tempBool;
 	}
 	
 	
@@ -179,6 +217,39 @@ public class Server {
 		cmdSend.write("\n");
 		cmdSend.flush();
 		
+	}
+	
+	public int getID() {
+		return serverID;
+	}
+	static public int getID(String serverName) {
+		int tempID = 0;
+		boolean tempRun = true;
+		System.out.println(serverList.size());
+		
+		for (int i = 1; (i < serverList.size()) && tempRun; i++) {
+			
+			System.out.println(((Server)serverList.get(i)).serverName);
+			
+			if (((Server)serverList.get(i)).serverName.equals(serverName)) {
+				tempID = ((Server)serverList.get(i)).serverID;
+			}
+			
+		}
+		
+		System.out.println("Error: That server does not exist");
+		return 0;	//0 will never be an ID
+		
+		
+		//return tempID;
+	}
+	static public int getNoOfServ() {
+		return NumberOfServers;
+	}
+	
+	static boolean doesExist() {
+		
+		return false;
 	}
 	
 	/*public void Startup() {
