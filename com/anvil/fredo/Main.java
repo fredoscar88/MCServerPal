@@ -1,110 +1,122 @@
 package com.anvil.fredo;
 
-import java.io.IOException;
-import java.util.Scanner;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.FileWriter;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
 @SuppressWarnings("unused")
 public class Main {
 
 	static String ConsoleInput/* = "start"*/; 	//temporarily defaults to start //(not right now)
-	static String ConsoleCmd;
-	static Scanner ConsoleReader;
-	static String Parse;
-	static boolean running = true;
+	static String ConsoleCmd;	//
+	static Scanner ConsoleReader;	//Scanner to acquire input
+	static String Parse;	//next value pulled from console input. The next "word"
+	static boolean running;	//If the main thread is running. If false should close all other threads.
+	static List<String> cmd;
+	static int parseInt;
+	
+	static File dirServers;	//Servers directory
+	static File dirRes;	//Resources directory
+	static File dataServerData;	//General server data file	(Contains meta data like # of servers)
+	
+	static BufferedWriter fileWriter;	//May not be needed
+	static String fileReadoutValue;
+	
+	static FileUpdater MainThreadFileUpdater;
+	
+	static Console mainConsole;
+	
 	
 	//I eventually want the main class to open a new console so I don't have to run the program from
 	//	a batch file.
 	public static void main(String[] args) throws IOException, InterruptedException {
 		
+		System.out.println("Running MCServerPal!");
 		
-		//Upon every start we need to check to see if we have all of the files/directories that we need, if not we need to create them
-		System.out.println("Running MyServerPal!");
+		MainThreadFileUpdater = new FileUpdater();	//For acquiring/changing data from a file (for the main thread)
 		
-		//We also need to test where these directories are being made!
-		File testDir = new File("Test" + File.separator + "DoubleTest");
-		testDir.mkdirs();
+		addDirectories();	//Adds directories, stores them in variables.
 		
+		cmd = new ArrayList<String>();
 		
-		//ConsoleInput = "start";
+		//cnsAutostart();	//This method, when called with no parameters, will automatically start whatever server is specified, if any
+						//if called with parameters it changes the autostart option
 		
-		//Temp disabling
-		//ConsoleRun("Server Command Inserter", running);	//Accepted parameter of ConsoleRun is the startup message
+		mainConsole = new Console("Main Console");
+		mainRunning(mainConsole);
+		
+		output("MCServerPal closing");
+		
+	
+	}
+	
+	static void mainRunning(Console console) throws IOException, InterruptedException {
+		
+		running = true;
+		
+		while (running) {
+			
+			cmd.clear();
+			cmd = console.ConsoleRun();
+			ConsoleAction(cmd);
+			
+			
+		}
+		
 	}
 	
 	//We need to make the console more modular...
-	static void ConsoleRun(String ConsoleStartMessage, boolean canRun) throws IOException, InterruptedException {
-		ConsoleReader = new Scanner(System.in);
-		
-		System.out.println(ConsoleStartMessage);
-		System.out.println("Type \"?\" or \"help\" for help.");
-		
-		while (canRun) {
-			
-			if (ConsoleInput == null) {
-				
-				System.out.print(": ");
-				ConsoleInput = ConsoleReader.nextLine();
-				ConsoleInput = ConsoleInput.toLowerCase();
-					
-				ConsoleParse(ConsoleInput);
-				ConsoleCmd = Parse;
-					
-			} else {
-				ConsoleParse(ConsoleInput);
-				ConsoleCmd = Parse;
-			}
-			
-			if (ConsoleCmd.equals("stop")) {
-				System.out.println("The main thread has been stopped! I decided not to opt to returning to just running the command console");
-				canRun = false;
-			} else {
-			
-				ConsoleAction(ConsoleCmd);
-			}
-			
-			//Here, we'd send ConsoleCmd to be checked against a list of command words to perform console actions.
-			//This is dependent on the command or action word preceding it. Some action words incorporate the succeeding 
-			//words so whatever method reads these and performs actions will account for that. I think I should save this
-			//console stuff somewhere :I
-			//Action words that don't require succeeding words should wipe ConsoleInput to null, and invalid input should
-			//inform the user of the invalid command.
-			//For text adventure games we might need something different, something also capable of unlocking new command
-			//words, with an adaptive help menu
-			
-		}
-	}
 	
 	static void ConsoleAction (String command) throws IOException, InterruptedException {
 		
 		switch (command) {
-		case "help": System.out.println("Hah there is no help for you"); break;
-		case "create": if (ConsoleParse(ConsoleInput)) {createServer(Parse);} Main.ConsoleInput = null; break;
+		case "help": System.out.println("Type \"help <command>\" for more information on a specific command"); break;
+		//case "create": if (ConsoleParse(ConsoleInput)) {createServer(Parse);} Main.ConsoleInput = null; break;
+		case "exit": running=false; break; //Exits console, stops all servers (by sending stop commands to their own ConsoleAction menus)
 		case "start": StartServer(); break;
+		case "autostart": //Changes the value in dataServerData for Autostart. The if REMOVE is typed, clears out Autostart=
 		default : System.out.println("Type \"Help\" or \"?\" for help"); Main.ConsoleInput = null;
 		
 		}
 		
 	}
 	
-	static void createServer(String serverName) {
+	static void ConsoleAction (List<String> cmd) throws IOException, InterruptedException {
+		
+		
+		try {
+			//System.out.println(cmd.get(0) + " " + cmd.get(1));
+			switch (cmd.get(0)) {
+			case "help": help(cmd); break;
+			case "create": createServer(cmd.get(1)); break;
+			case "exit": running=false; break; //Exits console, stops all servers (by sending stop commands to their own ConsoleAction menus, we'll create a function for this)
+			case "start": StartServer(); break;
+			case "autostart": cnsAutostart(cmd.get(1)); break;//Changes the value in dataServerData for Autostart. The if REMOVE is typed, clears out Autostart. If RETURN is typed, returns the current autostarted server
+			
+			case "getID": System.out.println(Server.getID(cmd.get(1))); break;
+			//before I changed this, a 6 printed out, and I don't know why
+			default : System.out.println("Type \"Help\" or \"?\" for help"); Main.ConsoleInput = null;
+			}
+		} catch (IndexOutOfBoundsException e) {
+			System.out.println("[MCServerPal] Error: Missing syntax");
+			getSyntax(cmd.get(0));
+			e.printStackTrace();
+		}
 		
 	}
+	
 	
 	//(REMOVE)The whole start server is getting overhauled. Until I remove this comment, we're focusing on setting up a new server.
 	static void StartServer() throws IOException, InterruptedException {
 		
-		
-		
-		if (ConsoleParse(Main.ConsoleInput)) {
+		/*if (true) {
 			System.out.println("Running server: " + Parse);
 			
-			new Server(Parse);
+			//new Server(Parse);
 		}
 		else {
 			System.out.println("Running default server name");
@@ -112,7 +124,7 @@ public class Main {
 							//(Or rather use their name to locate their id from the data file. c: )
 			System.out.println("Server has closed, this program SHOULD terminate. (3)");
 			
-		}
+		}*/
 		
 		//The idea here is once the server is closed we don't need to use this program anymore, but I might change this
 		System.out.println("So it should stop now.");
@@ -120,66 +132,123 @@ public class Main {
 		
 		
 	}
-	
-	static void runTrue() {	//For when we stop a server. Frees us to use the main console again.
-							//It basically overwrites the stop setting that we instigate when we run the server
-		Main.ConsoleInput = null;
-	}
-	
-	static boolean ConsoleParse(String ConsoleInput) {
-		
-		if (ConsoleInput == null) {
-			System.out.println("Console input is null!");
-			Parse = null;
-			return false;
-		}	
-		
-		ConsoleInput = ConsoleInput.trim();	//removes any extra whitespace on the front and end
-		String ParseNext = ConsoleInput;	//Sets the ParseNext to ConsoleInput
-		ConsoleInput = ConsoleInput.replace(" ", "_");	//Replaces remaining spaces with underscore
-		boolean runFor = true;
-		
-		
-		if (ParseNext.equals(ConsoleInput)) {	//This condition checks to see if the input is the only command word
-			
-			Main.ConsoleInput = null;	//Since we've just parsed the entirety of the command, there is no more left, so we reset it
-			Parse = ParseNext;	
-			return true;
-		}
-		
-		
-		
-		
-		/*if (ConsoleInput.trim().equals(ParseNext.trim())) {
-			System.out.println("DEBUG: There are no spaces in the input command");
-			Parse = ParseNext;
-			return true;
-		}*/
-		
-		//Parses out the next word
-		for (int i = 0; i < ParseNext.length() && runFor; i++) {
-				
-			if (ParseNext.substring(i, i+1).equals(" ")) {
-				
-				ConsoleInput = ParseNext.substring(i+1);	//Removes the string we've just parsed from the rest of the input
-				ParseNext = ParseNext.substring(0,i);	//Removes whatever we don't want from our parse
-				runFor = false;							//Stops running
-			}
-			else if ((i == (ParseNext.length() - 1)) && runFor) {
-				
-				System.out.println("Hello, world, you should never see me!");
-				return false;	//Theoretically we'll never see this. This case can only be reached if the parser runs and doesn't find a space, but if there are no spaces to be found it is caught earlier
-				
-			}
-			
-		}
-		
-		
-		Main.ConsoleInput = ConsoleInput;
-		Parse = ParseNext;
-		return true;
-	}
-	
-	
 
+	static void addDirectories() throws IOException {
+
+		//Puts the directories/files into objects for use
+		dirServers = new File("Servers");
+		dirRes = new File("res");
+		dataServerData = new File("res" + File.separator + "ServerData");
+		
+		//Creates the directories/files if they don't exist
+		dirServers.mkdirs();
+		dirRes.mkdirs();
+		
+		if (dataServerData.createNewFile()) {
+			
+			//When we make a new file, we should really be copying it from the jar.
+			//For now I'm just going to write the info, but this info should be readily copyable
+			//so it can A) be easily changed and B) I don't have to hard-code default settings for
+			//files
+			
+			//dataServerData = copyServerData;
+			MainThreadFileUpdater.write(dataServerData, "Number_Of_Servers=0\nAutostart=");
+			
+			/*fileWriter = new BufferedWriter(new FileWriter(dataServerData));
+			fileWriter.write("Number_Of_Servers=0\nAutostart=\n");
+			fileWriter.flush();*/
+		}
+	}
+
+	static void output (String message) {
+		System.out.println("[MCServerPal] " + message);
+	}
+	
+	//Console actions, stuff from ConsoleAction() V:
+	static void createServer(String serverName) throws IOException {
+		String servFolderPath = "Servers" + File.separator + serverName + File.separator;
+		int NumberOfServers;
+		
+		new Server(serverName, servFolderPath);	
+		MainThreadFileUpdater.changeSetting(dataServerData, "Number_Of_Servers", Integer.toString(Server.getNoOfServ()));
+		
+		
+		//Other dirs here :<
+	}
+	
+	static void StartServer(String serverToStart) throws IOException, InterruptedException {
+		
+	}
+	
+	static void cnsAutostart() throws IOException, InterruptedException {
+		
+		String serverToStart = MainThreadFileUpdater.getSetting(dataServerData, "Autostart");
+		
+		if (serverToStart == null) {
+			System.out.println("No server to autostart found");
+			return;
+		}	else {
+			List<String> temp = new ArrayList<String>();
+			temp.add("start");
+			temp.add(serverToStart);
+			System.out.println(temp.get(0) + " " + temp.get(1));
+			ConsoleAction(temp);
+		}
+	}
+	static void cnsAutostart(String server) throws IOException {
+		String temp = MainThreadFileUpdater.getSetting(dataServerData, "Autostart");
+		
+		switch (server) {
+		case "REMOVE": MainThreadFileUpdater.changeSetting(dataServerData, "Autostart", ""); output("Autostart cleared"); break;
+		case "RETURN": if (temp == null) {output("No server on autostart");} else {output(temp);}; break;
+		default: MainThreadFileUpdater.changeSetting(dataServerData, "Autostart", server);
+				output("Server added to autostart: " + MainThreadFileUpdater.getSetting(dataServerData, "Autostart"));
+		}
+	}
+	static void help(List<String> cmd) {
+		//Not a string. This help menu specifically prints to the main console and therefore no need to do that.
+		
+		
+		try {
+			
+			getSyntax(cmd.get(1));
+			return;
+			
+		} catch (Exception e) {
+			System.out.println("Type \"help <command>\" for more information on a specific command");
+			System.out.println("List of commands:"
+					+ "\ncreate"
+					+ "\nstart"
+					+ "\nautostart"
+					+ "\nexit");
+		}
+		
+	}
+	static void getSyntax(String command) {
+		
+		switch (command) {
+		case "create":
+			System.out.println("Usage: \"create <server name>\""
+					+ "\nCreates a new server with given name");
+			break;
+		case "start":
+			System.out.println("Usage: \"start <server name>\""
+					+ "\nStarts the server that has the given name");
+			break;
+		case "autostart":
+			System.out.println("Usage: \"autostart <server name | \"RETURN\"| \"REMOVE\">\""
+					+ "\nFor server name, Sets the server to be started upon opening of MCServerPal"
+					+ "\nFor \"RETURN\", returns the current autostarted server"
+					+ "\nFor \"REMOVE\", clears the autostart option for servers (no server will automatically start)");
+			break;
+		case "exit":
+			System.out.println("Usage: \"exit\""
+					+ "\nExits MCServerPal");
+			break;
+		default: output("Not a command");
+		
+		}
+	}
+	
+	
 }

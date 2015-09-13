@@ -1,86 +1,81 @@
 package com.anvil.fredo;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 //THIS IS WHERE WE MODULARIZE THE CONSOLE, BUT NOT NOW. FOR NOW IM JUST GOING TO MAKE A NEW ONE IN SERVER AND SAVE THIS SHIT FOR LATER.
 
 
 public class Console {
-/*
-	static String ConsoleInput;
-	static String ConsoleCmd;
-	static Scanner ConsoleReader;
-	static String Parse;
-	static boolean running = true;
+
+	Scanner ConsoleReader;
+	List<String> cmd;
+	String ConsoleInput;
+	String Parse;
+	String ConsoleCmd; //May be deprecated
 	
-	//We need to make the console more modular...
+	String ConsoleStartMessage;
 	
-	public Console(String title) {
-		
-		ConsoleRun(title, true);
-	}
-	
-	private void ConsoleRun(String ConsoleStartMessage, boolean canRun) {
-		ConsoleReader = new Scanner(System.in);
+	public Console(String name) {
+		ConsoleStartMessage = name;
 		
 		System.out.println(ConsoleStartMessage);
 		System.out.println("Type \"?\" or \"help\" for help.");
 		
-		while (canRun) {
-			
-			if (ConsoleInput == null) {
-				
-				System.out.print(": ");
-				ConsoleInput = ConsoleReader.nextLine();
-				ConsoleInput = ConsoleInput.toLowerCase();
-					
-				ConsoleParse(ConsoleInput);
-				ConsoleCmd = Parse;
-					
-			} else {
-				ConsoleParse(ConsoleInput);
-				ConsoleCmd = Parse;
-			}
-			
-			if (ConsoleCmd.equals("stop")) {
-				canRun = false;
-			} else {
-			
-				ConsoleAction(ConsoleCmd);
-			}
-			
-			//Here, we'd send ConsoleCmd to be checked against a list of command words to perform console actions.
-			//This is dependent on the command or action word preceding it. Some action words incorporate the succeeding 
-			//words so whatever method reads these and performs actions will account for that. I think I should save this
-			//console stuff somewhere :I
-			//Action words that don't require succeeding words should wipe ConsoleInput to null, and invalid input should
-			//inform the user of the invalid command.
-			//For text adventure games we might need something different, something also capable of unlocking new command
-			//words, with an adaptive help menu
-			
-		}
 	}
 	
-	/*static void ConsoleAction (String command) {
+	//Please note: WHEN we move over to a UI we won't be handling input to the console the same way.
+	//It will come from a text field rather than the console itself, and will output to the same pane that
+	//The server is outputting from, prefixed probably by [MCServerPal]
+	//We probably don't have to change much in this class, thank goodness. All we change is how we input to
+	//this class.
+	List<String> ConsoleRun() throws IOException, InterruptedException {
+		ConsoleReader = new Scanner(System.in);
 		
-		switch (command) {
-		case "help": System.out.println("Hah there is no help for you"); break;
-		default : System.out.println("Type \"Help\" or \"?\" for help"); Main.ConsoleInput = null;
-		
+		if (ConsoleInput == null) {
+			
+			System.out.print(": ");
+			ConsoleInput = ConsoleReader.nextLine();
+			//ConsoleInput = ConsoleInput.toLowerCase();
+				
+			ConsoleParseCmd(ConsoleInput);	//soon... (divides the string into a list of the commands syntax)
+			ConsoleInput = null;	//For when we use the string divvier
+			//ConsoleParse(ConsoleInput);	//Here is where the string should be divied up
+			// ^ Deprecated
+				
+		} else {
+			ConsoleParseCmd(ConsoleInput);
 		}
 		
-	}*/
-	
-	/*private boolean ConsoleParse(String ConsoleInput) {
+		/*if (cmd.get(0).equals("stop")) {	//Ehhhhhhhhhhhhhhh maybe not in this class
+			System.out.println("The main thread has been stopped! I decided not to opt to returning to just running the command console");
+			canRun = false;
+		}*/
 		
+		return cmd;
+	}
+	
+	List<String> ConsoleRun (String cmdInput) throws IOException, InterruptedException {
+		
+		ConsoleInput = cmdInput;
+		
+		return ConsoleRun();
+	}
+	
+	//Keeping this for legacy purposes
+	/*boolean ConsoleParse(String ConsoleInput) {
+		//NOTE BIEN! We should change this to use a list! We can parse out each value of a command
+		//and plug them in to their specific syntax spots!
 		if (ConsoleInput == null) {
 			System.out.println("Console input is null!");
 			Parse = null;
 			return false;
 		}	
 		
-		ConsoleInput = ConsoleInput.trim();
-		String ParseNext = ConsoleInput;
-		ConsoleInput = ConsoleInput.replace(" ", "_");
+		ConsoleInput = ConsoleInput.trim();	//removes any extra whitespace on the front and end
+		String ParseNext = ConsoleInput;	//Sets the ParseNext to ConsoleInput
+		ConsoleInput = ConsoleInput.replace(" ", "_");	//Replaces remaining spaces with underscore
 		boolean runFor = true;
 		
 		
@@ -100,18 +95,18 @@ public class Console {
 			return true;
 		}*/
 		
-		
+		//Parses out the next word
 		/*for (int i = 0; i < ParseNext.length() && runFor; i++) {
 				
 			if (ParseNext.substring(i, i+1).equals(" ")) {
 				
-				ConsoleInput = ParseNext.substring(i+1);
-				ParseNext = ParseNext.substring(0,i);
-				runFor = false;
+				ConsoleInput = ParseNext.substring(i+1);	//Removes the string we've just parsed from the rest of the input
+				ParseNext = ParseNext.substring(0,i);	//Removes whatever we don't want from our parse
+				runFor = false;							//Stops running
 			}
 			else if ((i == (ParseNext.length() - 1)) && runFor) {
 				
-				System.out.println("Hello, world");
+				System.out.println("Hello, world, you should never see me!");
 				return false;	//Theoretically we'll never see this. This case can only be reached if the parser runs and doesn't find a space, but if there are no spaces to be found it is caught earlier
 				
 			}
@@ -122,20 +117,56 @@ public class Console {
 		Main.ConsoleInput = ConsoleInput;
 		Parse = ParseNext;
 		return true;
-	}
-	
-	
-	//Public methods
-	
-	public void runTrue() {	//For when we stop a server. Frees us to use the main console again.
-		//It basically overwrites the stop setting that we instigate when we run the server
-		Main.ConsoleInput = null;
-	}
-	
-	
-	public String GetParseNext() {
-		
-		
-		return Parse;
 	}*/
+	
+	//Not sure how much I like how this is void. I feel it should be List<String>
+	void ConsoleParseCmd(String ConsoleInput) {
+		
+		boolean jRun;
+		boolean iRun;
+		//System.out.println("CPC ran");
+		cmd = new ArrayList<String>();
+		
+		try {
+			iRun = true;
+			for (int i =0; iRun; i++) {
+				jRun=true;
+				for (int j = 0; jRun; j++) {
+					if (ConsoleInput.replace(" ", "_").equals(ConsoleInput)) {
+						cmd.add(ConsoleInput);
+						iRun = false;
+						jRun = false;
+					}
+					
+					if (ConsoleInput.substring(j, j+1).equals(" ")) {
+						cmd.add(/*i, */ConsoleInput.substring(0, j));
+						ConsoleInput = ConsoleInput.substring(j+1);
+						jRun = false;
+					}
+					
+				}
+				
+			}
+			
+		} finally {
+			/*System.out.println(cmd.size());
+			for (int i = 0;i < cmd.size();i++) {
+				System.out.print(cmd.get(i) + " ");
+			}
+			System.out.println();*/
+		}
+		
+	}
+	
+	
 }
+
+//All of the below is blah. Atm we're gunna change it to where any command can grab the syntax from the console. It's not the best solution (for ex. it doesn't really allow for multiple option flags, that would require constant parsing (i.e "--<optionname>" flags))
+		//Here, we'd send ConsoleCmd to be checked against a list of command words to perform console actions.
+		//This is dependent on the command or action word preceding it. Some action words incorporate the succeeding 
+		//words so whatever method reads these and performs actions will account for that. I think I should save this
+		//console stuff somewhere :I
+		//Action words that don't require succeeding words should wipe ConsoleInput to null, and invalid input should
+		//inform the user of the invalid command.
+		//For text adventure games we might need something different, something also capable of unlocking new command
+		//words, with an adaptive help menu
